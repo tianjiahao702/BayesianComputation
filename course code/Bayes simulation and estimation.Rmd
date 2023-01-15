@@ -1,0 +1,168 @@
+---
+title: "Bayes simulation and estimation"
+author: "Jiahao Tian"
+date: "2023-01-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+set.seed(2367)
+m = 10000
+a = 2
+b = 1/3
+
+theta = rgamma(n = m, shape = a, rate = b) #creats random generates function of gamma. 100 draws
+
+hist(theta, freq = FALSE) #equal false so it will give us prob density rather than counts
+
+#compare to theoratical pdf gamma by:
+curve(dgamma(x, shape = a, rate = b), col = "blue", add = TRUE)
+
+# from the graph below, it is pretty good that the simulate data is good approximating the gamma distri.
+
+
+```
+```{r}
+# we can now use our simulated value to find monte carlo approximation to the expected value of theta
+# to do this needs avg value of simulated value.
+
+#first way to find monte carlo approximation to the mean of theta
+sum(theta) / m
+#Second way
+mean(theta)
+
+# ture theta (gamma) mean
+a / b
+
+# Sample variance
+var(theta)
+
+#Ture variance
+a / b^2
+```
+```{r}
+#approximate theta < 5
+
+#creat indicator variable
+ind = theta < 5
+
+head(ind)
+
+#if we wanna get mean of this indicator, r will convert the ture false value in 1 or 0, and take mean of it
+mean(ind) # this creats a approximation of prob that theta < 5
+
+# compare to true gamma value
+pgamma(q = 5, shape = a, rate = b)
+
+
+
+# 0.9 quantile or 90% distribution of gamma is 
+quantile(theta, probs = 0.9)
+# true 90% quantile
+qgamma(p = 0.9, shape = a, rate = b ) #less then 0.9
+
+```
+######################################################################
+
+
+## monte carlo standar error
+      
+```{r}
+set.seed(2367)
+m = 10000
+a = 2
+b = 1/3
+
+theta = rgamma(n = m, shape = a, rate = b) #creats random generates function of gamma. 100 draws
+
+# creat a standar error
+se = sd(theta) / sqrt(m)
+se
+
+#creat CI for monte carlo approximation
+2 * se
+#se CI = (0.04, 0.08), 95% confident the monte carlo estimate of expected value is no more than 0.08 to the true expected value (相差值)
+
+# CI of mean value
+mean(theta) - 2 * se
+mean(theta) + 2 * se
+
+```
+
+```{R}
+#approximate theta < 5
+
+#creat indicator variable
+ind = theta < 5
+mean(ind)
+
+# true value
+pgamma(5, shape = a, rate = b)
+
+# calculate error for monte carlo estimate
+
+se = sd(ind) / sqrt(m)
+
+#creat CI for monte carlo approximation
+2 * se
+#se CI = (0.01, 0.49), 95% confident the monte carlo estimate of value is no more than 0.08 to the true expected value (相差值)
+
+
+```
+
+```{r}
+# simulate from hierarchical model
+# simulate phi_i ~ beta(2, 2)
+# simulate y_i ~ bin(10, phi_i)
+# repeat above two steps several times from joint distri of (y, phi)
+
+m = 1e5
+
+y = numeric(m) #numerical vector of m entri
+phi = numeric(m) #同上
+
+for (i in 1:m) {
+  phi[i] = rbeta(1, shape1 = 2, shape2 = 2 ) #here means for the ith value of phi will draw from beta distri.
+  y[i] = rbinom(1, size = 10, prob = phi)
+  }
+
+# to speed up the loop, we can write vectorized code
+
+phi = rbeta(m, shape1 = 2, shape2 = 2) #we first draw all the phi variables at once
+y = rbinom(m, size = 10, prob = phi)
+```
+
+
+```{r}
+## Marginal of Y only
+
+# if we only interest in marginal distri of y, we could just ignore the draw of phi, and
+# treat the draws of y as sample of its marginal distribution.
+# And that distibution will not be a binomial distri. it will be beta binomial distri.
+
+table(y) # This will tell us how often each of the different values of y were drawn in our simulation
+# from the table here because we got size = 10, so ten success, for each success we can tell how many simulation were drawed for diff times of success.
+
+
+# approximation of probabilities that under marginal distri of y
+table(y) / m
+# for example, under the marginal distribution of y, there is approximately 11% chance of three successes
+
+
+plot(table(y))
+# Monte Carlo approximation of the marginal distribution of y ~ betabinomial distri.
+
+
+
+```
+
+
+
+
+
+```
+      

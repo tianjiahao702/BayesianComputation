@@ -1,0 +1,35 @@
+---
+title: "matropolies hasting"
+author: "Jiahao Tian"
+date: "2023-01-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Random walk with normal likelihood, t prior
+
+```{r}
+# data are the percent change in total personnel from last year to this year for n=10 companies
+# yi is percent change in persoonal in company i. yi|mu ~ N(mu, 1)
+# prior on mu is t(location = 0, scale = 1, df = 1) also call calchy distri.
+
+# Because this model is not conjugate, the posterior distribution is not in a standard form that we can easily sample. To obtain posterior samples, we will set up a Markov chain whose stationary distribution is this posterior distribution.
+
+# Recall that the posterior distribution is p(μ∣y1,…,yn)∝exp[n(y_barμ−μ^2/2)]/1+μ^2 = g(mu)
+
+```
+
+
+
+
+
+
+
+
+
+
+```
