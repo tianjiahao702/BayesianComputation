@@ -1,0 +1,505 @@
+---
+title: "HW1"
+author: "Jiahao Tian"
+date: "2023-01-15"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+
+```
+
+```{r, include=FALSE}
+library(mvtnorm)
+library(tidyverse)
+library(ggplot2)
+```
+
+# Question 1
+
+# part a: method of moments estimators of ($\alpha$, $\beta$).
+
+
+$$x\sim \Gamma(\alpha, \beta)~~with~~E(x)={\alpha \over \beta}~~and~~Var(x)={\alpha \over \beta^2}$$
+$$\begin{aligned}
+E(x^2) & = \int_{0}^{\infty}{\beta^\alpha \over \Gamma(a)}{x^{\alpha+2-1}}{e^{-\beta x}}dx \\
+& = {\Gamma(\alpha+2) \over \Gamma(\alpha)\beta^2} \int_{0}^{\infty}{\beta^{\alpha+2} \over \Gamma(\alpha+2)}{x^{\alpha+2-1}}{e^{-\beta x}}dx \\
+& = {{\alpha (\alpha +1)} \over \beta^2} \\
+& = {{\alpha^2} \over \beta^2}+ {{\alpha} \over \beta^2} \\
+Var(x) & = {{\alpha} \over \beta^2} = E(x^2)-(E(x))^2 \\
+\beta & = {{\alpha} \over \beta}/{{\alpha} \over \beta^2} = {E(x) \over {E(x^2)-(E(x))^2}} \\
+which~\hat\beta_{mom} & = {{\bar x} \over {{1 \over n} \sum^n_{i=1} (x_i - \bar x)^2}} \\
+\alpha & = {{\alpha} \over \beta} \cdot ({{\alpha} \over \beta}/{{\alpha} \over \beta^2}) = {(E(x))^2 \over {E(x^2)-(E(x))^2}}\\
+which~\hat\alpha_{mom} & = {({\bar x})^2 \over {{1 \over n} \sum^n_{i=1} (x_i - \bar x)^2}} \\
+\end{aligned}$$
+
+
+# part b: maximum likelihood estimator of $\beta$ in closed form.
+
+$$\begin{aligned}
+Lf(x|\alpha, \beta) & = \bigg({{\beta^\alpha} \over \Gamma(\alpha)}\bigg)^n\Pi_{i=1}^n {xi}^{\alpha - 1}e^{-\beta \sum xi} \\
+\triangledown log(Lf(x|\beta)) & = {{n\alpha} \over \beta}-\sum xi,~~set~~to~~eqaul~~0\\
+\hat\beta_{mle} & = {{\alpha} \over \bar x},~~by~~invariance~~of~~mle \\
+\triangledown^2 log(Lf(x|\beta)) & = -{{n\alpha} \over \beta^2}<0\\
+\end{aligned}$$
+
+
+# part c
+
+```{r}
+# Consider the following data set:
+# x = (1.33, 1.60, 0.68, 0.28, 1.22, 0.72, 0.16, 0.32, 0.97, 0.46);
+fx_alp = function(alp) {
+  n = length(x)
+  betahat = alp / mean(x)
+  n * alp * log(betahat) - n * log(gamma(alp)) + (alp - 1) * sum(log(x)) - (betahat * sum(x))
+  }
+
+x = c(1.33, 1.60, 0.68, 0.28, 1.22, 0.72, 0.16, 0.32, 0.97, 0.46)
+alp = seq(0.1, 10, by = 0.1)
+post = fx_alp(alp)
+
+curve(fx_alp, from = 0, to = 3, col = 2) 
+
+```
+
+
+**Newton-Raphson Method**
+
+The process repeated as $x_{n+1}=x_n - {{f(x_n)}\over f^{'}(x_n)}$
+
+- First, by calculate the first and second partial derivative of the log-likelihood function with respect to $\alpha$
+- Second, generate the random number data which Gamma distributed use to calculate the MLE
+- Third, create the loop function to calculate the sum of the partial derivatives, the gradient vector, 
+the Hessian matrix, and the MLE approximated value
+- Last, until the difference between $x^{n+1}$ and $x^n$ is smaller than epsilon (very small value), such that use the MME for
+the initial value of $\beta^{0}$, and stop the approximation when $|\hat \beta^{(n+1)}- \hat \beta^{(n)}|$ < 0.0000001. 
+The MLE of $\alpha$ can be found.
+
+
+# Question 2
+
+# (a) derive the posterior distribution of ($\mu$, $\sigma^2$)
+
+$$ x \sim N(\mu,\sigma^2)$$
+
+$$\begin{aligned}
+P(\mu, \sigma^2|x_1,...,x_n) & \propto P(x_1,...x_n|\mu,\sigma^2)P(\mu)P(\sigma^2) \\
+& \propto (\sigma^2)^{-{{n}\over 2}}exp \bigg [-{{1}\over 2\sigma^2}\sum (x_i-\mu)^2 \bigg ]exp \bigg[-{{1}\over 2{{\sigma^2}\over \lambda_\mu}}(\mu - \epsilon^2) \bigg ](\sigma^2)^{-(\lambda_\sigma +1)} \cdot exp(-{{\alpha}\over \sigma^2}) \\
+\end{aligned}$$
+
+$$\begin{aligned}
+P(\sigma^2|x_1,...x_n) & \propto  (\sigma^2)^{-{{n}\over 2}}exp \bigg [-{{1}\over 2\sigma^2}\sum (x_i-\mu)^2 \bigg ](\sigma^2)^{-(\lambda_\sigma +1)} \cdot exp(-{{\alpha}\over \sigma^2}) \\
+& \propto (\sigma^2)^{-{{n}\over 2}+\lambda_\sigma +1}exp \bigg [-{{1}\over \sigma^2}({{1}\over 2}\sum (x_i-\mu)^2+ {{\alpha}} \bigg ]\\
+& Subsititute~parameters~from~distribution~of~\mu \\
+\sigma^2 & \sim \Gamma^{-1}\bigg (\lambda_\sigma +{{n}\over 2}, \alpha + {{1}\over 2} \sum(x_i - \bar x)^2+{{n\lambda_\mu}\over 2(n+\lambda_\mu)}(\bar x - \epsilon)^2 \bigg )\\
+P(\mu|\sigma^2, x_1,...,x_n) & \propto exp \bigg [-{{1}\over 2\sigma^2}\sum (x_i-\mu)^2 \bigg ]exp \bigg[-{{1}\over 2{{\sigma^2}\over \lambda_\mu}}(\mu - \epsilon^2) \bigg ] \\
+& \propto exp\bigg [-{{1}\over 2\sigma^2}(\sum (x_i-\mu)^2+\lambda_\mu(\mu - \epsilon^2) \bigg]\\
+\mu & \sim N \bigg({{n\bar x + \lambda_\mu \epsilon}\over n+\lambda_\mu}, {{\sigma^2}\over n+\lambda_\mu} \bigg) \\
+\end{aligned}$$
+
+# (b) show marginal prior on $\mu$ is T(2$\lambda_\alpha$, $\epsilon$, ${{\alpha} \over \lambda_\mu \lambda_\sigma }$ )
+
+- From joint prior (Normal-inverse-gamma distribution) take integral from 0 to $\infty$, ${{df}\over d\sigma ^2}$.
+
+$$\begin{aligned}
+f(\mu, \sigma^2) & = {{1}\over \sqrt {2\pi{{\sigma^2}\over\lambda_\mu}}}{{\alpha}^{\lambda_\sigma}\over \Gamma(\lambda_\sigma)}\bigg ({1 \over {{{\sigma}^2} \over\lambda_\sigma}}\bigg)exp\bigg(-{{2\alpha+(x-\epsilon)^2} \over 2{{\sigma^2} \over\lambda_\mu}} \bigg)\\
+f(\mu) & = {{1}\over \sqrt2\pi}{{\alpha}^{\lambda_\sigma}\over \Gamma(\lambda_\sigma)} \int^\infty_0 \bigg ({1 \over {{{\sigma}^2} \over\lambda_\sigma}}\bigg)^{\lambda_\sigma+1/2+1}exp\bigg(-{{2\alpha+(x-\epsilon)^2} \over 2{{\sigma^2} \over\lambda_\mu}} \bigg) d\sigma^2\\
+since & \int^\infty_0 \Gamma^{-1}(x)dx = 1\;\;and\;\;\int^\infty_0 x^{-(a+1)}e^{-b/x}dx=\Gamma(a)b^{-a} \\
+f(\mu) & \propto \Gamma(\lambda_\sigma +{1\over2}) \bigg({{2\alpha+(x-\epsilon)^2} \over {{2}\over \lambda_\mu}} \bigg)^{-(\lambda_\sigma+{1\over2})} \\
+f(\mu) & \propto  \bigg(1+{{(x-\epsilon)^2} \over {{2\alpha}\over \lambda_\mu}} \bigg)^{-(\lambda_\sigma+{1\over2})} \\
+\mu & \sim T(2\lambda_\sigma,\epsilon,{{\alpha}\over\lambda_\mu \lambda_\sigma}) \\
+\end{aligned}$$
+
+
+# (c) give the corresponding marginal prior on $\sigma^2$.
+
+$$\begin{aligned}
+f(\mu, \sigma^2) & = {{1}\over \sqrt {2\pi{{\sigma^2}\over\lambda_\mu}}}{{\alpha}^{\lambda_\sigma}\over \Gamma(\lambda_\sigma)}\bigg ({1 \over {{{\sigma}^2} \over\lambda_\sigma}}\bigg)exp\bigg(-{{2\alpha+(x-\epsilon)^2} \over 2{{\sigma^2} \over\lambda_\mu}} \bigg)\\
+f(\sigma^2) & \propto {{\alpha}^{\lambda_\sigma}\over \Gamma(\lambda_\sigma)} \bigg ({1 \over {{{\sigma}^2} \over\lambda_\sigma}}\bigg)^{\lambda_\sigma+1}exp\bigg(-{{\alpha} \over {{\sigma^2} \over\lambda_\mu}} \bigg)\\
+&Since\; \sigma^2\;is\;not\;dependent\;on\; \mu \\
+\sigma^2 & \sim \Gamma^{-1}(\lambda_\sigma , \alpha) \\
+\end{aligned}$$
+
+
+
+# Question 3
+
+# part i: 
+
+## Diaconis, Ylvisaker 
+
+$$ y|\theta \sim Bin(n, \theta)$$
+
+$$\begin{aligned}
+P(y|\theta) & = {n \choose y}\theta^y(1-\theta)^{n-y}\\
+& \propto exp\bigg[ylog(\theta)+(n-y)log(1-\theta) \bigg] \\
+& \propto exp\bigg[ylog({{\theta}\over 1-\theta})+nlog(1-\theta) \bigg] \\
+& \propto exp\bigg[\phi log({{\theta}\over 1-\theta})+n\lambda log(1-\theta) \bigg] \\
+& \propto exp\bigg[ \phi log(\theta)+\lambda log(1-\theta)- \phi log(1-\theta) \bigg]  \\
+& \propto \theta^\phi(1-\theta)^{\lambda -\phi} \sim Beta(\phi, \lambda -\phi)\\
+\end{aligned}$$
+
+## Jeffreys
+
+$$\begin{aligned}
+f(y|\theta) & = {n \choose y}\theta^y(1-\theta)^{n-y}\\
+logLf(y|\theta) & \propto ylog(\theta)+(n-y)log(1-\theta) \\
+\triangledown^2 logLf(y|\theta) & \propto -{{y}\over \theta^2}-{{n-y}\over (1-\theta)^2}\\
+Fisher\;Information: & \propto {1 \over {\theta(1-\theta)}} \\
+& by~~|I(\theta)|^{1\over 2} \\
+& \propto \theta^{-{{1}\over  2}}(1-\theta)^{-{{1}\over 2}} \\
+Jeffreys\;prior & \;is\;\; \theta^{{{1}\over  2} -1}(1-\theta)^{{{1}\over 2}-1} \sim Beta({{1}\over 2}, {{1}\over 2})\\
+\end{aligned}$$
+
+
+# part ii: 
+
+## Diaconis, Ylvisaker
+
+$$ y|\theta \sim Poisson(\theta)$$
+$$\begin{aligned}
+P(y|\theta) & = {{e^{-\theta}\theta^y} \over y!} \\
+& \propto exp\bigg[-\theta + ylog(\theta) \bigg] \\
+& \propto exp\bigg[-\theta \lambda + \phi log(\theta) \bigg] \\
+& \propto {{e^{-\theta \lambda}\theta^ {\phi +1-1}}} \sim \Gamma(\phi+1, \lambda)\\
+\end{aligned}$$
+
+## Jeffreys
+
+$$\begin{aligned}
+P(y|\theta) & = {{e^{-\theta}\theta^x} \over y!} \\
+logLf(y|\theta) & \propto -\theta+ylog(\theta) \\
+\triangledown^2 logLf(y|\theta) & \propto -{{y}\over \theta^2} \\
+Fisher\;Information: & \propto {1 \over {\theta}} \\
+& by~~|I(\theta)|^{1\over 2} \\
+Jeffreys\;prior & \;is\;{{1}\over \sqrt\theta } \sim \Gamma({{1}\over2}, 0)\\
+\end{aligned}$$
+
+
+# Question 4
+
+# (a) Plot f(x) and show that it can be bounded by Mg(x), where $g={{exp(-x^2 / 2)}\over (2\pi)}$. Find the an acceptable, if not optimal value for M. (Hint: use optimize()).
+
+```{R}
+fx = function(x) {
+  exp(-x^2 / 2) * (sin(6 * x)^2 + 3 * cos(x)^2 * sin(4 * x)^2 + 1 )
+}
+
+gx = function(x) {
+  exp(-x^2 / 2) / sqrt(2 * pi)
+}
+
+Mgx = function(x) {
+  11 * (exp(-x^2 / 2) / sqrt(2 * pi)) #plug M back in
+}
+```
+
+```{r}
+set.seed(1166)
+curve(fx, from = -5, to = 5, col = 2) 
+curve(Mgx, from = -5, to = 5, col = 3, add = TRUE)
+```
+
+```{r}
+opfx = function(x) {
+  fx(x) / gx(x)
+}
+
+max = optimise(opfx, c(0.1, 10), maximum = TRUE)
+max
+```
+
+- f(x) can be bounded by Mg(x) when M = 11.
+
+# (b)
+
+```{r}
+AR = function (f, g, m, n_iter) {
+  #x1 = rep(NA, n_iter) 
+  accp = 0 
+  for (i in 1:n_iter) { 
+    while (accp) { 
+      x = rnorm(1) 
+      u = runif(1) 
+      if (u <= (f(x) / (m * g(x)))) { 
+        accp = accp + 1
+        #x1[i] = x
+      }
+    }
+  }
+  list(accp = accp) 
+  }
+```
+
+```{r}
+set.seed(123)
+ar = AR(f = fx, g = gx, m = 11, n_iter = 2500)
+ar$accp
+```
+
+
+# (c)
+
+- All rejected, accept rate is ${2500 \over {2500 + 2500}} = 0.5$.
+- Constant is ${{1} \over (0.5 * 11)} = 0.18$.
+
+
+# Question 5
+
+# (a) Find the Laplace approximation for the following integrals.
+
+- (i)
+
+$$\begin{aligned}
+f(x) & = {{1}\over 2^{{k}\over 2}\Gamma({{k}\over 2})}x^{{{k}\over2}-1}exp(-{{x}\over2})\\
+& = exp\bigg \{({{k}\over2}-1)log(x)-{{k}\over2}log(2)-log(\Gamma({{k}\over2}))-{{x}\over2} \bigg\} \\
+h(x) & = ({{k}\over2}-1)log(x)-{{k}\over2}log(2)-log(\Gamma({{k}\over2}))-{{x}\over2} \\
+h^{''}(x) & = {{k-2}\over 2x^{2}}\\
+\;\;\; \\
+& \int^b_a {{1}\over 2^{{k}\over 2}\Gamma({{k}\over 2})}x^{{{k}\over2}-1}exp(-{{x}\over2}) dx \\
+by\;Laplace\;approximation\;we\;get: & \propto {{\hat x^{{{k}\over2}-1}exp(-{{\hat x}\over2})}\over 2^{{k}\over 2}\Gamma({{k}\over 2})} \int^b_aexp\bigg\{{{(x-\hat x)^2}\over 2}({{k-2}\over2\hat x^2}) \bigg\} dx \\
+& \hat x =max(k-2,0)\\
+\end{aligned}$$
+
+
+- (ii)
+
+$$\begin{aligned}
+f(x) & = x^{\alpha -1}(1-x)^{\beta-1},\;for\;\alpha, \beta>1\\
+& = exp\bigg\{ (\alpha -1)log(x)+(\beta-1)log(1-x)\bigg\}\\
+h(x) & = (\alpha -1)log(x)+(\beta-1)log(1-x)\\
+h^{''}(x) & = -{{\alpha -1}\over x^2}-{{\beta-1}\over(1-x)^2}\\
+\;\; \\
+& \int^b_a x^{\alpha -1}(1-x)^{\beta-1}dx\\
+by\;Laplace\;approximation\;we\;get: & \propto \hat x^{\alpha-1}(1-\hat x)^{\beta-1} \int_a^b exp\bigg\{{{(x-\hat x)^2} \over 2}(-{{\alpha -1}\over \hat x^2} - {{\beta -1}\over (1-\hat x)^2}) \bigg\}dx \\
+& \propto {{(\alpha-1)^{\alpha-1}(\beta-1)^{\beta-1}\over(\alpha+\beta -2)^{\alpha+\beta -2}}} \int_a^b exp\bigg\{{{(x-\hat x)^2} \over 2} \bigg ({{-(\alpha+\beta-2)^2}\over (\alpha -1)}+{{-(\alpha+\beta-2)^2}\over (\beta-1)} \bigg ) \bigg\}dx\\
+& \hat x = {{\alpha-1}\over \alpha+\beta-2},\;for\; \alpha,\beta>1\\
+\end{aligned}$$
+
+
+# (b) Use the Laplace approximation to find the appropriate normalizing constant for $(\alpha =2,\beta=2)$ and $(\alpha = 1, \beta = 2)$, and compare with the exact evaluation of such constant.
+
+
+- When $(\alpha =2,\beta=2)$.
+
+$$\begin{aligned}
+\hat x & = {{1}\over2}\\
+plug\;\;\hat x\;\;and\;\;\alpha, \beta\;\;in & = {{(2-1)^{2-1}(2-1)^{2-1}\over(2+2 -2)^{2+2 -2}}} \int_0^1 exp\bigg\{{{(x-{{1}\over2})^2} \over 2} \bigg ({{-(2+2-2)^2}\over (2 -1)}+{{-(2+2-2)^2}\over (2-1)} \bigg ) \bigg\}dx\\
+& = 0.25\int^1_0 exp(-4(x-0.5)^2)dx
+\end{aligned}$$
+
+
+```{r}
+bx = function (x) {
+  0.25 * exp(-4 * (x - 0.5)^2)
+}
+b1 = integrate(bx, 0, 1)
+b1
+
+b2 = beta(2, 2)
+b2
+
+##very close
+```
+
+- When $(\alpha = 1, \beta = 2)$
+
+$$\begin{aligned}
+\hat x & = 0\\
+plug\;\;\hat x\;\;and\;\;\alpha, \beta\;\;in & = {{(1-1)^{1-1}(2-1)^{2-1}\over(1+2 -2)^{1+2 -2}}} \int_0^1 exp\bigg\{{{(x-0)^2} \over 2} \bigg ({{-(1+2-2)^2}\over (1 -1)}+{{-(1+2-2)^2}\over (2-1)} \bigg ) \bigg\}dx\\
+& = (1-x) \int^1_0 exp({{x^2}\over 2(1-x)^2})dx\\
+\end{aligned}$$
+
+- $\alpha$ here is 1 and not satisfy the condition that $\alpha$ > 1. So when $(\alpha = 1, \beta = 2)$ this function is not proper.
+
+
+
+# Question 6
+
+# (a) Describe how to simulate directly from $\pi(x_1, x_2)$.
+
+First by derive the marginal distribution of $x_1$ and conditional distribution of $x_2$.
+
+$$\begin{aligned}
+\pi(x_1, x_2) & \propto exp\bigg\{ -{{x_1^2}\over 2} \bigg\} exp\bigg[ -{{\{x_2 - 2(x_1^2-5)\}^2} \over 2} \bigg] \\
+f(x_1) &= exp\bigg\{ -{{x_1^2}\over 2} \bigg\} \int exp\bigg[ -{{\{x_2 - 2(x_1^2-5)\}^2} \over 2} \bigg] dx_2 \\
+1.\;\;\;f(x_1) & \propto exp\bigg\{ -{{x_1^2}\over 2}\bigg\},\;\;\pi(x_1)\sim N(0,1) \\
+2.\;\;\;f(x_2|x_1) & \propto exp\bigg[ -{{\{x_2 - 2(x_1^2-5)\}^2} \over 2} \bigg],\;\;\pi(x_2|x_1) \sim N(2(x_1^2-5), 1) \\
+\end{aligned}$$
+
+
+```{r}
+library(ggplot2)
+set.seed(44) # set the random seed for reproducibility
+x1 = rnorm(1000, 0, 1)
+x2 = rnorm(1000, 2 * (x1^2 - 5), 1)
+banana = as.data.frame(exp(-x1^2 / 2) * exp(-(x2 - 2 * (x1^2 - 5.0))^2 / 2))
+bananadd <- as.data.frame(cbind(x1, x2))
+ggplot(banana, aes(x = x1, y = x2)) + geom_density_2d_filled(color = "yellow")
+head(bananadd)
+```
+
+# (b) Describe how to simulate from $\pi(x_1, x_2)$ using the accept-reject method. Implement your algorithm and discuss sampling efficiency in relation to the chosen instrument distribution.
+
+```{r}
+ba = function(x1, x2) {
+  exp(-x1^2 / 2) * exp(-(x2 - 2 * (x1^2 - 5.0))^2 / 2)
+}
+
+ba_ar = function(n_iter, sig, m) {
+  
+  ## step 1, initialize
+  mvn = rmvnorm(n = n_iter, sigma = sig) 
+  n_iter = nrow(mvn)
+  ba_now = dmvnorm(mvn, sigma = sig)
+  ba_cand = rep(NA, n_iter)
+
+  ## step 2, iterate
+  for (i in 1:n_iter) {
+    ## step 2a
+    x1_cand = mvn[i, 1] # draw a candidate
+    x2_cand = mvn[i, 2] # draw a candidate
+
+    ## step 2b
+    ba_cand[i] = ba(x1 = x1_cand, x2 = x2_cand) # evaluate with the candidate
+    c = (ba_cand / ba_now) * (1 / m) # ratio
+
+    ## step 2c
+    u = runif(n_iter) 
+    # draw a uniform variable which will be less than c with probability
+    x_ar = mvn[c >= u, ]
+  }
+  
+  ## return a list of output
+  list(x_ar)
+}
+```
+
+```{r}
+set.seed(4355)  # set the random seed for reproducibility
+sig = matrix(c(1.5, 0, 0, 10), 2)
+x_ar = ba_ar(n_iter = 10000, sig = sig, m = 100)
+post = as.data.frame(x_ar)
+head(post)
+```
+
+```{r}
+ggplot() +
+  geom_point(data = post, mapping = aes(x = X1, y = X2)) + 
+  geom_density_2d_filled(mapping = aes(x = x1, y = x2), 
+                         data = banana, alpha = 0.8, color = "yellow")
+```
+
+
+**Sampling Efficiency**
+
+```{r}
+nrow(post) / 10000
+```
+
+- From the plot above, the points simulated from Aaccept-reject method. The Sampling Efficiency is 2.39%. If using distribution which close to Banana distribution might get a better result. 
+
+# (c) Describe how to simulate from $\pi(x_1, x_2)$ using sampling importance resampling. Implement your algorithm and discuss sampling efficiency in relation to the chosen importance distribution.
+
+```{r}
+## step 1, initialize
+mu1 = c(0, 1)
+mu2 = c(0, -1)
+sig1 = matrix(c(1.5, 0, 0, 10), 2)
+sig2 = matrix(c(1.5, 0, 0, 10), 2)
+n_iter = 10000
+mvn1 = rbind(rmvnorm(n_iter / 2, mu1, sig1), rmvnorm(n_iter / 2, mu2, sig2)) 
+mvn1 = rmvnorm(n = n_iter, sigma = sig) 
+ba_now1 = rep(NA, n_iter)
+ba_cand1 = rep(NA, n_iter)
+
+## step 2, iterate
+for(i in 1:n_iter) {
+  ba_now1[i] = 0.5 * dmvnorm(mvn1[i,], mu1, sig1) +
+    0.5 * dmvnorm(mvn1[i,], mu2, sig2)
+  ba_cand1[i] = exp(-mvn1[i,1]^2 / 2) * exp(-(mvn1[i, 2] -
+                                                2 * (mvn1[i, 1]^2 - 5.0))^2 / 2)
+}
+```
+
+```{r}
+set.seed(4355)
+w = ba_cand1 / ba_now1
+xx = seq(1, n_iter)
+x_is  = mvn1[sample(xx, prob = w, replace = T), ] 
+post1 = as.data.frame(x_is)
+head(post1)
+```
+
+```{r}
+ggplot() + 
+  geom_point(data = post1, mapping = aes(x = V1, y = V2)) + 
+  geom_density_2d_filled(mapping = aes(x = x1, y = x2), 
+                         data = banana, alpha = 0.8, color = "yellow")
+```
+
+**Sampling Efficiency**
+
+```{r}
+nrow(unique(post1)) / 10000
+```
+
+- From above results, for IS, Sampling Efficiency is 7.68%. Also, from both Sampling Efficiency and plot shows that IS is better than AR sampling. Resampling will yield a better results.
+
+# (d) Use the algorithms in (a, b, c) to estimate the following.
+
+- 1.$E(x_1^2)$
+
+```{R}
+x1_2 = list(ba = bananadd$x1^2,
+             ar = post$X1^2, 
+             ir = post1$V1^2)
+
+means = lapply(x1_2, mean) 
+vars = lapply(x1_2, var) 
+x1_2 = cbind(means, vars)
+x1_2
+
+```
+
+- For AR algorithm shows higher mean value, and other two's mean values are very close.
+
+
+- 2.$E(x_2^2)$.
+
+```{R}
+x2 = list(ba = bananadd$x2,
+             ar = post$X2, 
+             ir = post1$V2)
+
+means = lapply(x2, mean) 
+vars = lapply(x2, var) 
+x2 = cbind(means, vars)
+x2
+
+```
+
+- All methods provided similar estimates for the mean of $X_2^2$.
+
+- 3.$P(x_1+x_2 >0)$.
+
+```{r}
+p = list(ba = as.numeric(bananadd$x1 + bananadd$x2 > 0), 
+         ar = as.numeric(post$X1 + post$X2 > 0), 
+         ir = as.numeric(post1$V1 + post1$V2 > 0)) 
+means = lapply(p, mean) 
+vars = lapply(p, var)
+p = cbind(means, vars)
+p
+
+```
+
+- All methods provided similar estimates for the mean when $P(x_1+x_2 >0)$.
+
+
