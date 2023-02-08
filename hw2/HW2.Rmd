@@ -388,13 +388,19 @@ p(\sigma^2 |y_j) &\propto p(y_j |\beta_j, \tau_j^2, \beta, \lambda^2) \\
 &\propto p(y_j |\beta_j, \tau_j^2, \sigma^2, \lambda^2)p(\sigma^2) \\
 &\propto (\sigma^2)^{\frac{-n}{2}}\exp[-\frac{1}{2\sigma^2}(y_j - X\beta_j)^T(y_j - X\beta_j)](\sigma^2)^{-1}\exp-(\frac{1}{\sigma^2}) \\
 &= {\sigma^2}^{(-\frac{n}{2})-1}\exp[-\frac{1}{\sigma^2}(1 + \frac{1}{2}(y_j - X\beta_j)^T(y_j - X\beta_j)] \\
-& which\;follows\;\sim \Gamma^{-1}(\frac{n}{2}, 1 + \frac{1}{2}(y_j - X\beta_j)^T(y_j - X\beta_j)) \\
+& which\;follows\;\sim \Gamma^{-1}(\frac{n}{2}, 10 + \frac{1}{2}(y_j - X\beta_j)^T(y_j - X\beta_j)) \\
     \;\;\\
 p(\beta_j |y_j) & \propto p(y_j|\beta_j, \tau_j^2, \sigma^2, \lambda^2)(\beta_j |  \tau_j^2) \\
 & \propto \exp[-\frac{1}{2\sigma^2}(y_j - X\beta_j)^T(y_j - X\beta_j)]\exp[-\frac{1}{2}\sigma^{-1}\beta_j^T\beta_j],\;\;for\;\;\sigma = diag(\tau_i^2) \\
 & = \exp[-\frac{1}{2\sigma^2}(y_j^Ty_j - 2y_j(X\beta_j)^T + (X\beta_j)^T(X\beta_j)) - \frac{1}{2}\beta_j^T\sigma^{-1}\beta_j) \\
 &\propto \exp[-\frac{1}{2}(\beta_j^T(\frac{X^TX}{\sigma^2} + \sigma^{-1})\beta_j) - \frac{1}{2\sigma^2}2(X\beta_j)^Ty_j] \\
 & which\;follows\;\sim N([\frac{X^TX}{\sigma^2} + \sigma^{-1}]^{-1}\frac{X^T y_j}{\sigma^2}, [\frac{X^TX}{\sigma^2} + \sigma^{-1}]^{-1})\\
+\;\;\\
+p(\tau_j^{-2}|\beta_j,y_j, \sigma^2,\lambda^2) & \propto (\tau^{-2}_j)^{-{3}\over 2}exp\bigg(-{{\lambda^2}\over 2}\bigg[ {{\beta_j^2}\over \lambda^2}\tau_j^{-2}+\tau^2_j \bigg] \bigg)\\
+& which\;follows\;\sim Inv.N(({{\lambda^2}\over \beta^2_j})^{{1}\over 2}, \lambda^2)\\
+\;\;\;\\
+p(\lambda^2|\beta,y_j,\sigma^2) & \propto (\lambda^2)^{a-1}exp(-b\lambda^2)\Pi_j^p{{\lambda^2}\over 2}exp[-{{\lambda^2}\over2}\tau_j^2]\\
+& which\;follows\;\sim\Gamma^{-1}(a+p, b+{{1}\over 2}\sum_j^p \tau_j^2)
 \end{aligned}$$
 
 
@@ -405,18 +411,17 @@ p(\beta_j |y_j) & \propto p(y_j|\beta_j, \tau_j^2, \sigma^2, \lambda^2)(\beta_j 
 
 ```{r}
 update_beta = function(X, y, sig2_0, tau2_0) {
-  head = t(X) %*% X + tau2_0 / sig2_0
+  head = t(X) %*% X / sig2_0 + diag(1 / tau2_0)
   var_1 = solve(head)
-  mu_1 = solve(head, t(X) %*% y)
-  rmvnorm(n = 1, mean = mu_1, sigma = var_1) %>%
-    t()
+  mu_1 = solve(t(X) %*% X + diag(sig2_0 / tau2_0)) %*% t(X) %*% y
+  rmvnorm(n = 1, mean = mu_1, sigma = var_1)
 }
 ```
 
 ```{r}
 update_sig2 = function(n, y, X, beta_0) {
   shape_1 = n / 2 + 0.1 
-  rate_1 = (t(y - X %*% beta_0) %*% (y - X %*% beta_0) * 0.5) + 10 
+  rate_1 = (t(y - X %*% t(beta_0)) %*% (y - X %*% t(beta_0)) * 0.5) + 10 
   out_sig2 = rgamma(1, shape = shape_1, rate = rate_1)
   1 / out_sig2
 }
@@ -429,9 +434,11 @@ update_lamb2 = function(a, b, tau2_0) {
 ```
 
 ```{r}
-#update_tau2 = function(lambda2_0, beta_0, p) {
- #   1 / rinvgauss(1, mean = sqrt(lambda2_0) / sqrt(beta_0^2), shape = lambda2_0)
-#}
+update_tau2 = function(lambda2_0, beta_0) {
+  tau_1 = rinvgauss(1, 
+                    mean = sqrt(lambda2_0) / sqrt(beta_0^2), shape = lambda2_0)
+  1 / tau_1
+}
 
 ```
 
@@ -448,14 +455,9 @@ gmh = function(y, X, n_iter, burn, lambda, a = 1, b = 1) {
   sig2hat = (n - 1) / sum((y - X %*% betahat)^2)
   lambda_now = lambda
   
-  if(lambda_now < 0) {
-    lambda_now = 0.1
-  }
-  tau2_0 = rep(0, 10)
-  tau2 = diag(11)
-
   ## initialize 2
-  beta_out = matrix(NA, nrow = n_iter, 11)
+  tau2_0 = rep(0, 10)
+  beta_out = matrix(NA, nrow = n_iter, p)
   sig2_out = numeric(n_iter)
 
     ## iterate
@@ -464,9 +466,7 @@ gmh = function(y, X, n_iter, burn, lambda, a = 1, b = 1) {
     for(j in 1:p) { 
       
       # draw for tau
-      tau2_0 = 1 / rinvgauss(1, lambda_now / abs(betahat[j]), 
-                             shape = lambda_now^2) 
-      tau2[j, j] = tau2_0
+      tau2_0[j] = update_tau2(lambda2_0 = lambda_now , beta_0 = abs(betahat[j])) 
     }
     
     # draw for beta
@@ -538,6 +538,7 @@ plot(glmnet1, xvar = "lambda", label = TRUE)
 
 - Bayesian Lasso plot
 
+
 ```{r, include=FALSE}
 gibbs_sampler_2 <- function(size, burnin, a, b, X, Y, seed=12345, fix_lam=FALSE, lam2=1) { 
   set.seed(seed) 
@@ -590,7 +591,7 @@ Y <- diabetes$y
 
 ```{r, include=FALSE}
 lambda2_seq <- exp(seq(-4, 4, 0.4))^2 
-outputs <- lapply(lambda2_seq, function(lam) {gibbs_sampler_2(2000, 0.1, a=1, b=5, X=XX, Y=Y,fix_lam=TRUE, lam2 = lam)})
+outputs <- lapply(lambda2_seq, function(lam) {gibbs_sampler_2(5000, 0.1, a = 1, b = 5, X=XX, Y=Y, fix_lam=TRUE, lam2 = lam)})
 
 ```
 
@@ -608,7 +609,8 @@ ggplot(df, aes(lambda, value, color = variable)) +
 
 - From above plots, for the diabetes data, fix $\lambda$ and produce a regularization path for adaptive Bayesian Lasso is more smoother than Glmnet lasso.
 
-####################################
+
+
 
 # g)
 
@@ -621,7 +623,6 @@ output = apply(newab, 1, function(newab){
   gmh(n_iter = 5000, burn = 1000, a = newab[1], 
       b = newab[2], X = X, y = y, lambda = 1)
   }) 
-
 ab = lapply(outputs, function(x){x[[1]]}) 
 ab = lapply(ab, function(x){apply(x,2,median)})
 
